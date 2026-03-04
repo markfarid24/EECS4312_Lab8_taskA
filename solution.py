@@ -1,5 +1,5 @@
-## Student Name:
-## Student ID:
+## Student Name: Mark Farid
+## Student ID: 218994368
 
 """
 Task A: Appointment Timeslot Recommender (Stub)
@@ -86,6 +86,71 @@ class InfeasibleSchedule(Exception):
     """Raised when no valid slots can be produced (if required by handout)."""
     pass
 
+# helper functiosn:
+IntervalDT = Tuple[datetime, datetime]
+
+
+def _validate_time_window(name: str, w: TimeWindow) -> None:
+    if w.start is None or w.end is None:
+        raise ValueError(f"{name} start/end must not be None")
+    if w.end <= w.start:
+        raise ValueError(f"{name} must satisfy start < end (got {w.start} to {w.end})")
+
+
+def _validate_busy_interval(b: BusyInterval) -> None:
+    if b.start is None or b.end is None:
+        raise ValueError("BusyInterval start/end must not be None")
+    if b.end <= b.start:
+        raise ValueError(f"BusyInterval must satisfy start < end (got {b.start} to {b.end})")
+
+
+def _merge_intervals(intervals: List[IntervalDT]) -> List[IntervalDT]:
+    """
+    Merge overlapping or adjacent intervals using half-open semantics [start, end).
+    Adjacent where cur_end == next_start are merged to simplify.
+    """
+    if not intervals:
+        return []
+
+    intervals_sorted = sorted(intervals, key=lambda x: (x[0], x[1]))
+    merged: List[IntervalDT] = []
+    cur_s, cur_e = intervals_sorted[0]
+
+    for s, e in intervals_sorted[1:]:
+        # overlap or adjacency => merge
+        if cur_e >= s:
+            if e > cur_e:
+                cur_e = e
+        else:
+            merged.append((cur_s, cur_e))
+            cur_s, cur_e = s, e
+
+    merged.append((cur_s, cur_e))
+    return merged
+
+
+def _clip_interval(iv: IntervalDT, start: datetime, end: datetime) -> Optional[IntervalDT]:
+    s, e = iv
+    if e <= start or s >= end:
+        return None
+    return (max(s, start), min(e, end))
+
+
+def _append_slots_from_gap(
+    gap_start: datetime,
+    gap_end: datetime,
+    duration: timedelta,
+    n: int,
+    out: List[Slot],
+) -> None:
+    """
+    Generate back-to-back slots of length `duration` within [gap_start, gap_end).
+    Append Slot(start_time) until out has n items or no more fit.
+    """
+    s = gap_start
+    while s + duration <= gap_end and len(out) < n:
+        out.append(Slot(start_time=s.time()))
+        s = s + duration
 
 # ---------------- Core Function ----------------
 
@@ -125,4 +190,73 @@ def suggest_slots(
     # TODO: Implement as per lab handout requirements and constraints.
     ##################################################################
     
-    raise NotImplementedError("suggest_slots has not been implemented yet")
+    _validate_time_window("working_hours", working_hours)
+
+    if candidate_window is not None:
+        _validate_time_window("candidate_window", candidate_window)
+
+    if duration is None or duration <= timedelta(0):
+        raise ValueError("duration must be > 0")
+
+    if buffer is None or buffer < timedelta(0):
+        raise ValueError("buffer must be >= 0")
+
+    if not isinstance(n, int) or n < 0:
+        raise ValueError("n must be an int >= 0")
+
+    if n == 0:
+        return []
+
+    for b in busy_intervals:
+        _validate_busy_interval(b)
+
+    # ---- Compute effective allowed window (working ∩ candidate, if any) ----
+    eff_start_t = working_hours.start
+    eff_end_t = working_hours.end
+    if candidate_window is not None:
+        eff_start_t = max(eff_start_t, candidate_window.start)
+        eff_end_t = min(eff_end_t, candidate_window.end)
+
+    # If intersection is empty, no slots
+    if eff_end_t <= eff_start_t:
+        return []
+
+    eff_start_dt = datetime.combine(day, eff_start_t)
+    eff_end_dt = datetime.combine(day, eff_end_t)
+
+    # ---- Expand busy intervals by buffer and convert to datetimes ----
+    expanded_busy: List[IntervalDT] = []
+    for b in busy_intervals:
+        bs = datetime.combine(day, b.start) - buffer
+        be = datetime.combine(day, b.end) + buffer
+        expanded_busy.append((bs, be))
+
+    # Merge overlaps/adjacency (robust to unsorted input)
+    merged_busy = _merge_intervals(expanded_busy)
+
+    # Clip busy intervals to effective window (ignore irrelevant parts)
+    clipped: List[IntervalDT] = []
+    for iv in merged_busy:
+        clipped_iv = _clip_interval(iv, eff_start_dt, eff_end_dt)
+        if clipped_iv is not None:
+            clipped.append(clipped_iv)
+
+    merged_busy = _merge_intervals(clipped)
+
+    # ---- Find free gaps and emit up to n slots ----
+    results: List[Slot] = []
+    cursor = eff_start_dt
+
+    for bs, be in merged_busy:
+        if bs > cursor:
+            # Free gap: [cursor, bs)
+            _append_slots_from_gap(cursor, bs, duration, n, results)
+            if len(results) >= n:
+                return results
+        cursor = max(cursor, be)
+
+    # Tail gap: [cursor, eff_end_dt)
+    if cursor < eff_end_dt and len(results) < n:
+        _append_slots_from_gap(cursor, eff_end_dt, duration, n, results)
+
+    return results
