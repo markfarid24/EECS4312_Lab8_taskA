@@ -180,7 +180,8 @@ def test_a5_buffer_eliminates_small_gaps():
 # Add your own additional tests here to cover more cases and edge cases as needed.
 #################################################################################
 
-def test_a6_no_availability_returns_empty_edge_case():
+# No availability returns empty edge case
+def test_a6():
     day = date(2026, 2, 24)
     working = TimeWindow(time(9, 0), time(10, 0))
     busy = [BusyInterval(time(9, 0), time(10, 0))]
@@ -188,34 +189,39 @@ def test_a6_no_availability_returns_empty_edge_case():
     out = suggest_slots(day, working, busy, duration, n=5, buffer=timedelta(0), candidate_window=None)
     assert out == []
 
-def test_a7_exact_slots_no_busy_back_to_back():
+# Exact slots meaning should'nt be busy back to back
+def test_a7():
     day = date(2026, 2, 24)
     working = TimeWindow(time(9, 0), time(12, 0))
     out = suggest_slots(day, working, [], timedelta(minutes=60), n=10)
     assert [s.start_time for s in out] == [time(9, 0), time(10, 0), time(11, 0)]
 
-def test_a8_exact_skip_single_busy_interval():
+# Skip single busy interval
+def test_a8():
     day = date(2026, 2, 24)
     working = TimeWindow(time(9, 0), time(12, 0))
     busy = [BusyInterval(time(10, 0), time(11, 0))]
     out = suggest_slots(day, working, busy, timedelta(minutes=30), n=10)
     assert [s.start_time for s in out] == [time(9, 0), time(9, 30), time(11, 0), time(11, 30)]
 
-def test_a9_exact_merge_overlapping_busy():
+# Merge overlapping busy
+def test_a9():
     day = date(2026, 2, 24)
     working = TimeWindow(time(9, 0), time(13, 0))
     busy = [BusyInterval(time(11, 0), time(12, 0)), BusyInterval(time(10, 0), time(11, 30))]
     out = suggest_slots(day, working, busy, timedelta(minutes=30), n=10)
     assert [s.start_time for s in out] == [time(9, 0), time(9, 30), time(12, 0), time(12, 30)]
 
-def test_a10_exact_candidate_window_intersection():
+# Exact candidate window intersection
+def test_a10():
     day = date(2026, 2, 24)
     working = TimeWindow(time(9, 0), time(17, 0))
     candidate = TimeWindow(time(13, 0), time(15, 0))
     out = suggest_slots(day, working, [], timedelta(minutes=60), n=10, candidate_window=candidate)
     assert [s.start_time for s in out] == [time(13, 0), time(14, 0)]
 
-def test_a11_exact_buffer_expands_busy_and_removes_slots():
+# Buffer expands busy and removes slots
+def test_a11():
     day = date(2026, 2, 24)
     working = TimeWindow(time(9, 0), time(12, 0))
     busy = [BusyInterval(time(10, 0), time(11, 0))]
