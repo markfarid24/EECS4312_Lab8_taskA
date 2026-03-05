@@ -2,7 +2,7 @@
 ## Student ID: 218994368
 
 ======================================
-Prompt #1
+Prompt #1:
 {I am implementing a Python module called an “Appointment Slot Recommender.” The module recommends available meeting slots within a defined working window. Provide the problem summary, functional requirements, constraints, and acceptance criteria for the Appointment Slot Recommender, and share any ambiguities or missing clarifications}
 
 Full Response Text #1: {Problem summary: Implement a Python module “Appointment Slot Recommender” that recommends available meeting slots within a defined working window. Inputs include working start/end, a list of busy intervals, a required meeting duration, an optional buffer time between meetings, an optional candidate time window restriction, and N (maximum number of suggestions). Output is the next N valid appointment suggestions in chronological order.
@@ -42,10 +42,221 @@ Short Response Summary: The model restated the problem, listed FR1–FR7, constr
 Decision: Accept 
 ======================================
 ======================================
-Prompt #2
+Prompt #2:
+{Edit this starter code with the implementation for this system: (pasted start code)}
+
+Full Response Text #2: {Replace the TODO block with this code (you can paste the whole function + helpers into your file).
+
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, time
+from typing import List, Optional, Tuple
+# ---------------- Data Models ----------------
+
+@dataclass(frozen=True)
+class TimeWindow:
+    """
+    A daily time window.
+    Assumption (unless stated otherwise in handout): non-wrapping window where start < end.
+    """
+    start: time
+    end: time
+
+
+@dataclass(frozen=True)
+class BusyInterval:
+    """
+    A busy interval on the given day.
+    Invariant: start < end
+    """
+    start: time
+    end: time
+
+
+@dataclass(frozen=True)
+class Slot:
+    """
+    A recommended appointment slot.
+
+    start_time is a time-of-day within the working window.
+    Deterministic ordering: sort by start_time ascending.
+    """
+    start_time: time
+
+
+class InfeasibleSchedule(Exception):
+    """Raised when no valid slots can be produced (if required by handout)."""
+    pass
+
+
+# ---------------- Helper Functions ----------------
+
+IntervalDT = Tuple[datetime, datetime]
+
+
+def _validate_time_window(name: str, w: TimeWindow) -> None:
+    if w.start is None or w.end is None:
+        raise ValueError(f"{name} start/end must not be None")
+    if w.end <= w.start:
+        raise ValueError(f"{name} must satisfy start < end (got {w.start} to {w.end})")
+
+
+def _validate_busy_interval(b: BusyInterval) -> None:
+    if b.start is None or b.end is None:
+        raise ValueError("BusyInterval start/end must not be None")
+    if b.end <= b.start:
+        raise ValueError(f"BusyInterval must satisfy start < end (got {b.start} to {b.end})")
+
+
+def _merge_intervals(intervals: List[IntervalDT]) -> List[IntervalDT]:
+    """
+    Merge overlapping or adjacent intervals using half-open semantics [start, end).
+    Adjacent where cur_end == next_start are merged to simplify.
+    """
+    if not intervals:
+        return []
+
+    intervals_sorted = sorted(intervals, key=lambda x: (x[0], x[1]))
+    merged: List[IntervalDT] = []
+    cur_s, cur_e = intervals_sorted[0]
+
+    for s, e in intervals_sorted[1:]:
+        # overlap or adjacency => merge
+        if cur_e >= s:
+            if e > cur_e:
+                cur_e = e
+        else:
+            merged.append((cur_s, cur_e))
+            cur_s, cur_e = s, e
+
+    merged.append((cur_s, cur_e))
+    return merged
+
+
+def _clip_interval(iv: IntervalDT, start: datetime, end: datetime) -> Optional[IntervalDT]:
+    s, e = iv
+    if e <= start or s >= end:
+        return None
+    return (max(s, start), min(e, end))
+
+
+def _append_slots_from_gap(
+    gap_start: datetime,
+    gap_end: datetime,
+    duration: timedelta,
+    n: int,
+    out: List[Slot],
+) -> None:
+    """
+    Generate back-to-back slots of length `duration` within [gap_start, gap_end).
+    Append Slot(start_time) until out has n items or no more fit.
+    """
+    s = gap_start
+    while s + duration <= gap_end and len(out) < n:
+        out.append(Slot(start_time=s.time()))
+        s = s + duration
+
+
+# ---------------- Core Function ----------------
+
+def suggest_slots(
+    day: date,
+    working_hours: TimeWindow,
+    busy_intervals: List[BusyInterval],
+    duration: timedelta,
+    n: int,
+    buffer: timedelta = timedelta(0),
+    candidate_window: Optional[TimeWindow] = None
+) -> List[Slot]:
+    """
+    Suggest up to the next n valid appointment slots (start times) for the given day.
+
+    Deterministic behavior choices (unless your handout specifies differently):
+    - Treat all intervals as half-open [start, end).
+    - Apply buffer by expanding busy intervals to [start-buffer, end+buffer).
+    - Within each free gap, generate back-to-back slots with step = duration.
+    """
+
+    # ---- Validate inputs ----
+    _validate_time_window("working_hours", working_hours)
+
+    if candidate_window is not None:
+        _validate_time_window("candidate_window", candidate_window)
+
+    if duration is None or duration <= timedelta(0):
+        raise ValueError("duration must be > 0")
+
+    if buffer is None or buffer < timedelta(0):
+        raise ValueError("buffer must be >= 0")
+
+    if not isinstance(n, int) or n < 0:
+        raise ValueError("n must be an int >= 0")
+
+    if n == 0:
+        return []
+
+    for b in busy_intervals:
+        _validate_busy_interval(b)
+
+    # ---- Compute effective allowed window (working ∩ candidate, if any) ----
+    eff_start_t = working_hours.start
+    eff_end_t = working_hours.end
+    if candidate_window is not None:
+        eff_start_t = max(eff_start_t, candidate_window.start)
+        eff_end_t = min(eff_end_t, candidate_window.end)
+
+    # If intersection is empty, no slots
+    if eff_end_t <= eff_start_t:
+        return []
+
+    eff_start_dt = datetime.combine(day, eff_start_t)
+    eff_end_dt = datetime.combine(day, eff_end_t)
+
+    # ---- Expand busy intervals by buffer and convert to datetimes ----
+    expanded_busy: List[IntervalDT] = []
+    for b in busy_intervals:
+        bs = datetime.combine(day, b.start) - buffer
+        be = datetime.combine(day, b.end) + buffer
+        expanded_busy.append((bs, be))
+
+    # Merge overlaps/adjacency (robust to unsorted input)
+    merged_busy = _merge_intervals(expanded_busy)
+
+    # Clip busy intervals to effective window (ignore irrelevant parts)
+    clipped: List[IntervalDT] = []
+    for iv in merged_busy:
+        clipped_iv = _clip_interval(iv, eff_start_dt, eff_end_dt)
+        if clipped_iv is not None:
+            clipped.append(clipped_iv)
+
+    merged_busy = _merge_intervals(clipped)
+
+    # ---- Find free gaps and emit up to n slots ----
+    results: List[Slot] = []
+    cursor = eff_start_dt
+
+    for bs, be in merged_busy:
+        if bs > cursor:
+            # Free gap: [cursor, bs)
+            _append_slots_from_gap(cursor, bs, duration, n, results)
+            if len(results) >= n:
+                return results
+        cursor = max(cursor, be)
+
+    # Tail gap: [cursor, eff_end_dt)
+    if cursor < eff_end_dt and len(results) < n:
+        _append_slots_from_gap(cursor, eff_end_dt, duration, n, results)
+
+    return results}
+
+Short Response Summary: The LLM generated the implemenation for the system. I added it to the starter code and pushed it to branch "mark1"
+
+Decision: Accept.
+======================================
+======================================
+Prompt #3:
 {ok i will take your response. is there anything else i am missing to add?}
 
-Full Response Text #2: You’re basically done on the code side. Now you just need to add the additional test cases for part 4 and that should be it. The most common things people forget for this lab are the process/traceability artifacts and git hygiene. Be sure to go over those when you finish designing the test cases.}
+Full Response Text #3: {You’re basically done on the main code side. Now you just need to add the additional test cases for part 4 and that should be it. The most common things people forget for this lab are the process/traceability artifacts and git hygiene. Be sure to go over those when you finish designing the test cases.}
 
 Short Response Summary: The model just told me to implement the additional test cases and to check over the processes and git hygiene after I'm done making test cases. 
 
