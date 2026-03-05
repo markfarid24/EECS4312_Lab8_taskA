@@ -41,3 +41,13 @@ Short Response Summary: The model restated the problem, listed FR1–FR7, constr
 
 Decision: Accept 
 ======================================
+======================================
+Prompt #2
+{ok i will take your response. is there anything else i am missing to add?}
+
+Full Response Text #2: You’re basically done on the code side. Now you just need to add the additional test cases for part 4 and that should be it. The most common things people forget for this lab are the process/traceability artifacts and git hygiene. Be sure to go over those when you finish designing the test cases.}
+
+Short Response Summary: The model just told me to implement the additional test cases and to check over the processes and git hygiene after I'm done making test cases. 
+
+Decision: Accept. I will now make my own test cases based on the Model's implementation of solution.py. 
+======================================
