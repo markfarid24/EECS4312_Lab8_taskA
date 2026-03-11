@@ -1,0 +1,103 @@
+Name: Mark Farid
+Student Number: 218994368
+
+## 1. Problem Understanding - Describe the problem your system solves.
+System purpose:
+The objective of the system is to recommend up to n available appointment start times for a given day within working hours. It does this while avoiding busy intervals and respecting buffer time. The results have to be deterministic and ordered chronologically. 
+
+Inputs to the system:
+- day
+- working_hours
+- busy_intervals
+- duration
+- n
+- buffer
+
+Outputs produced by the system:
+- A list of up to n Slot objects
+- If no slots exist, the system returns an empty list
+
+Primary goal of the system:
+Return the next n valid appointment suggestions in chronological order
+---
+## 2. Assumptions - List assumptions about the environment, users, or inputs.
+A1: Time windows are non-wrapping within a single day. so start < end 
+A2: All BusyInterval times occur on the specified day and satisfy start < end
+A3: duration is a positive timedelta
+A4: buffer is a non-negative timedelta
+A5: Intervals use half-open
+A6: If candidate_window is provided, the effective allowed window is the intersection of working_hours and candidate_window
+---
+## 3. Functional Requirements- Describe the main behaviors the system must perform.
+FR1: The system shall accept a calendar day for which appointment slots are requested
+FR2: The system shall accept working hours as a start time and end time (start < end)
+FR3: The system shall accept a list of busy intervals for the day
+FR4: The system shall accept a required meeting duration (duration > 0)
+FR5: The system shall accept an optional buffer time between meetings (buffer ≥ 0)
+FR6: The system shall accept an optional candidate time window that further restricts suggestions
+---
+## 4. System Constraints - Constraints are conditions the system must always respect. Each constraint should reference the persona attribute it originates from
+C1: Given identical inputs, returned slot lists shall be identical in content and order 
+Derived from persona attribute: Jane needs predictable ordering
+
+C2: Returned slots shall not overlap any busy interval after applying buffer
+Derived from persona attribute: Jane trusts automation to resolve conflicts without manual checking
+
+C3: The system shall return at most n suggestions
+Derived from persona attribute: Jane prefers concise outputs and minimal interaction
+
+C4: The system shall treat overlapping busy intervals as if merged before evaluating availability
+Derived from persona attribute: Jane dislikes inconsistent behavior in similar situations
+
+C5: When multiple slots exist, the system shall select earlier start times first using a deterministic ordering rule
+Derived from persona attribute: Mo needs deterministic behavior under ties
+
+C6: If no slot exists, the system shall return an empty list
+Derived from persona attribute: Mo wants explicit edge case handling
+
+C7: When the system returns no slots, it shall provide an explicit explanation
+Derived from persona attribute: Mo needs clear explanations when decisions change or requests are rejected
+---
+## 5. Acceptance Criteria -  Acceptance criteria define how system behavior will be verified.
+AC1: Given identical inputs, when suggest_slots is called twice, then both outputs shall have identical start times in identical order
+
+AC2: Given any busy intervals and buffer >= 0, when slots are returned, then no slot interval overlaps any buffered busy interval
+
+AC3: Given n, when suggest_slots is called, then the returned list length shall be <= n.
+
+AC4: Given overlapping busy intervals, when suggest_slots, then the outputs shall be identical.
+
+AC5: Given no free gap of length >= duration exists within the effective allowed window, when suggest_slots is called, then it shall return an empty list
+
+AC6: Given a scenario with no slots, when the system returns no suggestions, then it shall provide a reason indicating why no slot was returned
+---
+## 6. Edge Cases - Describe unusual or boundary situations the system must handle.
+EC1
+Description: No availability
+Linked Constraint ID(s): C6, C2
+Covered by Acceptance Criteria ID(s): AC5
+
+EC2
+Description: Overlapping busy intervals
+Linked Constraint ID(s): C4
+Covered by Acceptance Criteria ID(s): AC4
+
+EC3
+Description: Unsorted busy intervals
+Linked Constraint ID(s): C8, C4
+Covered by Acceptance Criteria ID(s): AC4
+
+EC4
+Description: Adjacent busy intervals
+Linked Constraint ID(s): C2, C4
+Covered by Acceptance Criteria ID(s): AC2, AC4
+---
+## 7. Traceability - Link functional requirements to constraints and acceptance criteria. FR → C → AC mapping
+FR1 -> C2 & C3 -> AC2 & AC3
+FR2 -> C1 & C5 -> AC1
+FR3 -> C4 -> AC4
+FR4 -> C7 -> AC6
+FR5 -> C2 & C6 -> AC2 & AC5
+FR6 -> C3 & C6 -> AC3 & AC5
+---
+## Revision Notes
