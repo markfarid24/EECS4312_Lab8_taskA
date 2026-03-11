@@ -1,0 +1,73 @@
+Name: Mark Farid
+Student Number: 218994368
+No LLM assistance was used.
+
+C1:
+Persona: Jane
+Attribute: Needs predictable ordering
+Constraint: For identical inputs, the system shall return the same slot list in the same order
+Acceptance Criteria: Given identical day, working_hours, busy_intervals, duration, buffer, candidate_window, and n, when suggest_slots is called twice, then both outputs are identical 
+Test Idea: Call suggest_slots() twice with same inputs and assert equality of returned start times
+Current Support Level: Fully supported
+Description: suggest_slots sorts busy intervals and generates slots in chronological order
+
+C2:
+Persona: Jane
+Attribute: Prefers concise output
+Constraint: The system shall return at most n slot suggestions
+Acceptance Criteria: Given any inputs, the output length is <= n.
+Test Idea: Use a wide-open working window and small duration
+Current Support Level: Fully supported
+Description: Slot generation stops once the length of the results is equal to n
+
+C3:
+Persona: Jane
+Attribute: Need's automatic handling of conflicts
+Constraint: Returned slots shall not overlap any busy interval
+Acceptance Criteria: Given any busy interval list, when slots are returned, there is no overlap
+Test Idea: Busy interval in middle of day
+Current Support Level: Fully supported
+
+C4:
+Persona: Jane
+Attribute: Pain point-inconsistent behavior in similar situations
+Constraint: Busy intervals may be unsorted or overlapping
+Acceptance Criteria: Given two input lists representing the same blocked time, the outputs should be identical
+Test Idea: Provide overlapping busy intervals and see if outputs match
+Current Support Level: Fully supported
+Description: Busy intervals are normalized through sorting and merging
+
+C5:
+Persona: Mo
+Attribute: Need's deterministic under ties
+Constraint: If multiple slots exist, the system shall choose earlier start times first 
+Acceptance Criteria: Given at least two time gaps, when n=2, then the 2 returned slots have the 2 earliest possible start times
+Test Idea: Create two free gaps
+Current Support Level: Fully supported
+
+C6:
+Persona: Mo
+Attribute: Need/Pain point-explicit handling of edge cases
+Constraint: If no slot exists, the system shall return an empty list 
+Acceptance Criteria: Given a working window fully blocked by busy intervals, the output is an empty list
+Test Idea: Busy = entire working hours
+Current Support Level: Fully supported
+Description: If no free gap fits duration, the function returns an empty list 
+
+C7:
+Persona: Mo
+Attribute: Need's clear explanations when requests are rejected
+Constraint: When the system returns an empty list, it shall provide a reason in a message 
+Acceptance Criteria: Given scenarios 1,2,3, when called, then the system returns empty list and reason in a message
+Test Idea: Create three scenarios and assert correct reason returned
+Current Support Level: Not supported
+Description: Current Lab 8 system returns only List[Slot] and does not include a reason when no slots are found. We should modify the API to return either a reason or a structured object containing slots plus a reason in a message 
+
+C8:
+Persona: Mo
+Attribute: Behavior-performs frequent updates
+Constraint: Changes in busy interval ordering shall not change results
+Acceptance Criteria: Given the same busy intervals in different orders, the outputs should be identical
+Test Idea: Shuffle busy list order then verifiy the output
+Current Support Level: Fully supported
+Description: Since busy intervals are sorted internally, reordering busy inputs does not change results
