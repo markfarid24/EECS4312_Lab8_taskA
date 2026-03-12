@@ -114,7 +114,6 @@ C10: Slot start times shall be generated using a fixed step size S. Only start t
 
 C11: If the returned slot list is empty, the system shall also return an explanation from a fixed set
 
-
 Revision Note 2:
 Requirement updated: Acceptance Criteria 
 Reason: The LLM identified many missing constraints for the project
