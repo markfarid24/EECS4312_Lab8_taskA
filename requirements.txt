@@ -12,6 +12,7 @@ Inputs to the system:
 - duration
 - n
 - buffer
+- candidate_window
 
 Outputs produced by the system:
 - A list of up to n Slot objects
@@ -84,7 +85,7 @@ Covered by Acceptance Criteria ID(s): AC4
 
 EC3
 Description: Unsorted busy intervals
-Linked Constraint ID(s): C8, C4
+Linked Constraint ID(s): C4
 Covered by Acceptance Criteria ID(s): AC4
 
 EC4
@@ -93,11 +94,35 @@ Linked Constraint ID(s): C2, C4
 Covered by Acceptance Criteria ID(s): AC2, AC4
 ---
 ## 7. Traceability - Link functional requirements to constraints and acceptance criteria. FR → C → AC mapping
-FR1 -> C2 & C3 -> AC2 & AC3
+FR1 -> C1 -> AC1
 FR2 -> C1 & C5 -> AC1
 FR3 -> C4 -> AC4
-FR4 -> C7 -> AC6
-FR5 -> C2 & C6 -> AC2 & AC5
+FR4 -> C2 & C6 -> AC2 & AC5
+FR5 -> C2 & C6 -> AC2 &  AC5
 FR6 -> C3 & C6 -> AC3 & AC5
 ---
 ## Revision Notes
+Revision Note 1:
+Requirement updated: Constraints 
+Reason: The LLM identified many missing constraints for the project
+Action: Added the cosntraints:
+C8: For every returned slot start time s, the meeting interval [s, s + duration) shall be fully contained within the effective allowed window
+
+C9: Buffer shall be applied by expanding each busy interval (bs, be) into a blocked interval [bs − buffer, be + buffer). A slot [s, s + duration) is valid only if it does not overlap any blocked interval
+
+C10: Slot start times shall be generated using a fixed step size S. Only start times t where [t, t + duration) satisfies all constraints shall be returned
+
+C11: If the returned slot list is empty, the system shall also return an explanation from a fixed set
+
+
+Revision Note 2:
+Requirement updated: Acceptance Criteria 
+Reason: The LLM identified many missing constraints for the project
+Action: Added the acceptance criteria for those constraints:
+AC7: Given any returned slot start time s, when end = s + duration is computed, then end <= working_hours.end and (if candidate_window is provided) end <= candidate_window.end
+
+AC8: Given busy intervals and buffer >= 0, when slots are returned, then for every returned slot interval [s, s+duration), it does not overlap any buffered busy interval
+
+AC9: Given a free gap and step size S, when slots are generated, then consecutive returned start times differ by exactly S minutes until the gap no longer fits
+
+AC10: Given a scenario where no feasible slot exists, when the system returns an empty slot list, then it also returns a reason
